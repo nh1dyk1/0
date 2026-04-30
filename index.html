@@ -841,24 +841,35 @@
         btn.addEventListener("pointerdown", (e) => {
             isPressed = true;
             btn.classList.add("pressed");
+            btn.setPointerCapture(e.pointerId);
+        });
+        btn.addEventListener("pointermove", (e) => {
+            if (!isPressed) return;
+            const rect = btn.getBoundingClientRect();
+            if (
+                e.clientX < rect.left ||
+                e.clientX > rect.right ||
+                e.clientY < rect.top ||
+                e.clientY > rect.bottom
+            ) {
+                isPressed = false;
+                btn.classList.remove("pressed");
+                btn.releasePointerCapture(e.pointerId);
+            }
         });
         btn.addEventListener("pointerup", (e) => {
             if (isPressed) {
                 isPressed = false;
                 btn.classList.remove("pressed");
+                btn.releasePointerCapture(e.pointerId);
                 setTimeout(() => action(e), 100);
             }
         });
-        btn.addEventListener("pointerleave", () => {
+        btn.addEventListener("pointercancel", (e) => {
             if (isPressed) {
                 isPressed = false;
                 btn.classList.remove("pressed");
-            }
-        });
-        btn.addEventListener("pointercancel", () => {
-            if (isPressed) {
-                isPressed = false;
-                btn.classList.remove("pressed");
+                btn.releasePointerCapture(e.pointerId);
             }
         });
     }
@@ -882,12 +893,25 @@
     window.addEventListener("pointercancel", setInputInactive);
     window.addEventListener("touchend", setInputInactive);
     
+    let spacePressed = false;
     window.addEventListener("keydown", e => {
         if(e.key === "ArrowRight") setInputActive();
-        if(e.key === " " && (gameOver || !gameStarted)) transitionToGame();
+        if(e.key === " " && (gameOver || !gameStarted) && !spacePressed) {
+            spacePressed = true;
+            if (!gameStarted) startBtn.classList.add("pressed");
+            else if (gameOver) retryBtn.classList.add("pressed");
+        }
     });
     window.addEventListener("keyup", e => {
         if(e.key === "ArrowRight") setInputInactive();
+        if(e.key === " ") {
+            if (spacePressed) {
+                spacePressed = false;
+                startBtn.classList.remove("pressed");
+                retryBtn.classList.remove("pressed");
+                setTimeout(() => transitionToGame(), 100);
+            }
+        }
     });
 
     function update() {
