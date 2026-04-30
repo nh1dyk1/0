@@ -366,7 +366,7 @@
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 8px 0 #c7a40c;
-            transition: all 0.05s;
+            transition: all 0.1s;
             width: 100%;
             margin-bottom: 10px;
             text-transform: uppercase;
@@ -375,10 +375,9 @@
             justify-content: center;
             gap: 12px;
             user-select: none;
-            -webkit-user-select: none;
         }
 
-        .action-btn:active {
+        .action-btn:active, .action-btn.pressed {
             transform: translateY(4px);
             box-shadow: 0 4px 0 #c7a40c;
         }
@@ -524,17 +523,21 @@
     canvas.width = baseWidth;
     canvas.height = baseHeight;
 
-    async function ensureAudioContext() {
+    function earlyAudioInit() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         if (audioCtx.state === 'suspended') {
-            await audioCtx.resume();
+            audioCtx.resume();
         }
-    }
-
-    function earlyAudioInit() {
-        ensureAudioContext();
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.001; 
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(0);
+        osc.stop(audioCtx.currentTime + 0.1);
         
         ['touchstart', 'click', 'pointerdown', 'keydown'].forEach(type => {
             window.removeEventListener(type, earlyAudioInit);
@@ -561,6 +564,18 @@
         try {
             const qrContainer = document.getElementById("qrcode");
             qrContainer.innerHTML = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAdAQAAAAB+6FqiAAAAnElEQVR4nAGRAG7/AAGTbAACfAUx8ALI66AgAgAloAACAAGAAAI4yEjgAAFVVAAA//W3+AJqGRsAAgJ2H7gADEcrCAQK5bviAIjvIaAAUs7n+AAtZhcAAiLb/ygBIT9DRQGm8Cb0AEn7sWACreDTAAFUMLwYAqv3p+gCAhZOKAB9KscIAUVw2+ABRejf/AIAdAsIBDg7icgAASEQqIIAMXF8q/e+AAAAAElFTkSuQmCC" width="120" height="120" style="display: block;">';
+        } catch (e) {
+        }
+    }
+
+    function initAudio() {
+        try {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         } catch (e) {
         }
     }
@@ -737,16 +752,27 @@
 
     async function transitionToGame(e) {
         if (isTransitioning) return;
-        isTransitioning = true;
+
+        if (audioCtx) {
+            await audioCtx.resume();
+        } else {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            await audioCtx.resume();
+        }
 
         if (e) {
             if (e.cancelable) e.preventDefault();
             e.stopPropagation();
         }
-        
-        await ensureAudioContext();
         window.focus();
+        
         updateLayout();
+        
+        isTransitioning = true;
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
         
         fadeOverlay.classList.add("active");
         await new Promise(r => setTimeout(r, 450));
@@ -810,14 +836,35 @@
         updateVisualFeedback();
     }
 
-    [startBtn, retryBtn].forEach(btn => {
-        const handleStart = (e) => {
-            if (isTransitioning) return;
-            transitionToGame(e);
-        };
-        btn.addEventListener("pointerdown", handleStart);
-        btn.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
-    });
+    function registerInteractiveButton(btn, action) {
+        let isPressed = false;
+        btn.addEventListener("pointerdown", (e) => {
+            isPressed = true;
+            btn.classList.add("pressed");
+        });
+        btn.addEventListener("pointerup", (e) => {
+            if (isPressed) {
+                isPressed = false;
+                btn.classList.remove("pressed");
+                setTimeout(() => action(e), 100);
+            }
+        });
+        btn.addEventListener("pointerleave", () => {
+            if (isPressed) {
+                isPressed = false;
+                btn.classList.remove("pressed");
+            }
+        });
+        btn.addEventListener("pointercancel", () => {
+            if (isPressed) {
+                isPressed = false;
+                btn.classList.remove("pressed");
+            }
+        });
+    }
+
+    registerInteractiveButton(startBtn, transitionToGame);
+    registerInteractiveButton(retryBtn, transitionToGame);
 
     [controlBar].forEach(el => {
         const handleStart = (e) => {
@@ -837,7 +884,7 @@
     
     window.addEventListener("keydown", e => {
         if(e.key === "ArrowRight") setInputActive();
-        if(e.key === " " && (gameOver || !gameStarted)) transitionToGame(e);
+        if(e.key === " " && (gameOver || !gameStarted)) transitionToGame();
     });
     window.addEventListener("keyup", e => {
         if(e.key === "ArrowRight") setInputInactive();
