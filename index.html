@@ -1296,6 +1296,19 @@
     } else {
         window.addEventListener('load', initApp);
     }
+
+    document.addEventListener("dblclick", function(e) {
+        e.preventDefault();
+    }, { passive: false });
+
+    let lastTouchTime = 0;
+    document.addEventListener("touchend", function(e) {
+        const now = window.performance.now();
+        if (now - lastTouchTime <= 300) {
+            e.preventDefault();
+        }
+        lastTouchTime = now;
+    }, { passive: false });
 </script>
 </body>
 </html>
