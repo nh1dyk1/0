@@ -895,16 +895,16 @@
     
     let spacePressed = false;
     window.addEventListener("keydown", e => {
-        if(e.key === "ArrowRight") setInputActive();
-        if(e.key === " " && (gameOver || !gameStarted) && !spacePressed) {
+        if(e.key === "ArrowRight" || e.key === " " || e.key === "d" || e.key === "D") setInputActive();
+        if((e.key === "ArrowRight" || e.key === " " || e.key === "d" || e.key === "D") && (gameOver || !gameStarted) && !spacePressed) {
             spacePressed = true;
             if (!gameStarted) startBtn.classList.add("pressed");
             else if (gameOver) retryBtn.classList.add("pressed");
         }
     });
     window.addEventListener("keyup", e => {
-        if(e.key === "ArrowRight") setInputInactive();
-        if(e.key === " ") {
+        if(e.key === "ArrowRight" || e.key === " " || e.key === "d" || e.key === "D") setInputInactive();
+        if(e.key === "ArrowRight" || e.key === " " || e.key === "d" || e.key === "D") {
             if (spacePressed) {
                 spacePressed = false;
                 startBtn.classList.remove("pressed");
